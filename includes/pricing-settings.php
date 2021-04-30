@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Settings class.
  */
-class WordPress_Plugin_Template_Settings {
+class Pricing_Settings {
 
 	/**
 	 * The single instance of WordPress_Plugin_Template_Settings.
@@ -49,6 +49,15 @@ class WordPress_Plugin_Template_Settings {
 	 * @since   1.0.0
 	 */
 	public $settings = array();
+
+	/**
+	 * Available settings for plugin in the product area.
+	 *
+	 * @var     array
+	 * @access  public
+	 * @since   1.0.0
+	 */
+	public $product_settings = array();
 
 	/**
 	 * Constructor function.
@@ -89,6 +98,7 @@ class WordPress_Plugin_Template_Settings {
 	 */
 	public function init_settings() {
 		$this->settings = $this->settings_fields();
+
 	}
 
 	/**
@@ -128,8 +138,8 @@ class WordPress_Plugin_Template_Settings {
 			array(
 				'location'    => 'options', // Possible settings: options, menu, submenu.
 				'parent_slug' => 'options-general.php',
-				'page_title'  => __( 'Plugin Settings', 'wordpress-plugin-template' ),
-				'menu_title'  => __( 'Plugin Settings', 'wordpress-plugin-template' ),
+				'page_title'  => __( 'Plugin Settings', 'pricing' ),
+				'menu_title'  => __( 'Plugin Settings', 'pricing' ),
 				'capability'  => 'manage_options',
 				'menu_slug'   => $this->parent->_token . '_settings',
 				'function'    => array( $this, 'settings_page' ),
@@ -148,6 +158,17 @@ class WordPress_Plugin_Template_Settings {
 	 */
 	public function configure_settings( $settings = array() ) {
 		return $settings;
+	}
+
+	/**
+	 * Container for settings page arguments
+	 *
+	 * @param array $settings Settings array.
+	 *
+	 * @return array
+	 */
+	public function configure_product_settings( $settings = array() ) {
+		return $product_settings;
 	}
 
 	/**
@@ -177,7 +198,7 @@ class WordPress_Plugin_Template_Settings {
 	 * @return array        Modified links.
 	 */
 	public function add_settings_link( $links ) {
-		$settings_link = '<a href="options-general.php?page=' . $this->parent->_token . '_settings">' . __( 'Settings', 'wordpress-plugin-template' ) . '</a>';
+		$settings_link = '<a href="options-general.php?page=' . $this->parent->_token . '_settings">' . __( 'Settings', 'Pricing' ) . '</a>';
 		array_push( $links, $settings_link );
 		return $links;
 	}
@@ -190,64 +211,87 @@ class WordPress_Plugin_Template_Settings {
 	private function settings_fields() {
 
 		$settings['standard'] = array(
-			'title'       => __( 'Standard', 'wordpress-plugin-template' ),
-			'description' => __( 'These are fairly standard form input fields.', 'wordpress-plugin-template' ),
+			'title'       => __( 'Standard', 'Pricing' ),
+			'description' => __( 'Here you can set a default configuration for your products.', 'Pricing' ),
 			'fields'      => array(
 				array(
-					'id'          => 'text_field',
-					'label'       => __( 'Some Text', 'wordpress-plugin-template' ),
-					'description' => __( 'This is a standard text field.', 'wordpress-plugin-template' ),
+					'id'          => 'default_rice',
+					'label'       => __( 'Default price', 'Pricing' ),
+					'description' => __( 'This value can be modify in the product administration area.', 'Pricing' ),
 					'type'        => 'text',
 					'default'     => '',
-					'placeholder' => __( 'Placeholder text', 'wordpress-plugin-template' ),
+					'placeholder' => __( 'Example 30,00€', 'Pricing' ),
 				),
 				array(
-					'id'          => 'password_field',
-					'label'       => __( 'A Password', 'wordpress-plugin-template' ),
-					'description' => __( 'This is a standard password field.', 'wordpress-plugin-template' ),
-					'type'        => 'password',
+					'id'          => 'max_price',
+					'label'       => __( 'Max Price', 'Pricing' ),
+					'description' => __( 'This is the maximun price set by default for all the games.', 'Pricing' ),
+					'type'        => 'text',
 					'default'     => '',
-					'placeholder' => __( 'Placeholder text', 'wordpress-plugin-template' ),
+					'placeholder' => __( 'Example 70,00€', 'Pricing' ),
 				),
 				array(
-					'id'          => 'secret_text_field',
-					'label'       => __( 'Some Secret Text', 'wordpress-plugin-template' ),
-					'description' => __( 'This is a secret text field - any data saved here will not be displayed after the page has reloaded, but it will be saved.', 'wordpress-plugin-template' ),
-					'type'        => 'text_secret',
+					'id'          => 'min_price',
+					'label'       => __( 'Min Price', 'Pricing' ),
+					'description' => __( 'This is the minimum price set by default for all the games.', 'Pricing' ),
+					'type'        => 'text',
 					'default'     => '',
-					'placeholder' => __( 'Placeholder text', 'wordpress-plugin-template' ),
+					'placeholder' => __( 'Example 5,00€', 'Pricing' ),
 				),
 				array(
-					'id'          => 'text_block',
-					'label'       => __( 'A Text Block', 'wordpress-plugin-template' ),
-					'description' => __( 'This is a standard text area.', 'wordpress-plugin-template' ),
-					'type'        => 'textarea',
+					'id'          => 'change_amount',
+					'label'       => __( 'Amount of change', 'Pricing' ),
+					'description' => __( 'This value represent how much the price will be increase or decrease depeding of the results get from the market after the periocity is complete.', 'Pricing' ),
+					'type'        => 'text',
 					'default'     => '',
-					'placeholder' => __( 'Placeholder text for this textarea', 'wordpress-plugin-template' ),
+					'placeholder' => __( 'Example 5% or 3€ or ...', 'Pricing' ),
 				),
 				array(
-					'id'          => 'single_checkbox',
-					'label'       => __( 'An Option', 'wordpress-plugin-template' ),
-					'description' => __( 'A standard checkbox - if you save this option as checked then it will store the option as \'on\', otherwise it will be an empty string.', 'wordpress-plugin-template' ),
+					'id'          => 'change_amount_type',
+					'label'       => __( 'Periocity type', 'Pricing' ),
+					'description' => __( 'Set the period as.', 'Pricing' ),
+					'type'        => 'radio',
+					'options'     => array(
+						'percentage'    => 'percentage %', 
+						'fix'    		=> 'Fix price €', 
+						//'auto'	 		=> 'Value auto generatic',
+					),
+					'default'     => '',
+				),
+				array(
+					'id'          => 'periocity',
+					'label'       => __( 'Periocity', 'Pricing' ),
+					'description' => __( 'Number that will set the periocity of the .', 'Pricing' ),
+					'type'        => 'text',
+					'default'     => '',
+					'placeholder' => __( 'Example 7 days or 1 month or ...', 'Pricing' ),
+				),/*
+				array(
+					'id'          => 'time_type',
+					'label'       => __( 'An Option', 'Pricing' ),
+					'description' => __( 'A standard checkbox - if you save this option as checked then it will store the option as \'on\', otherwise it will be an empty string.', 'Pricing' ),
 					'type'        => 'checkbox',
 					'default'     => '',
-				),
+				),*/
 				array(
-					'id'          => 'select_box',
-					'label'       => __( 'A Select Box', 'wordpress-plugin-template' ),
-					'description' => __( 'A standard select box.', 'wordpress-plugin-template' ),
+					'id'          => 'periocity_type',
+					'label'       => __( 'Periocity type', 'Pricing' ),
+					'description' => __( 'Set the period as.', 'Pricing' ),
 					'type'        => 'select',
 					'options'     => array(
-						'drupal'    => 'Drupal',
-						'joomla'    => 'Joomla',
-						'wordpress' => 'WordPress',
+						'seconds'    => 'Seconds', 
+						'minutes'    => 'Minutes', 
+						'hours' 	 => 'Hours', 
+						'days'		 => 'Days', 
+						'months' 	 => 'Months'
+
 					),
-					'default'     => 'wordpress',
-				),
+					'default'     => 'Days',
+				),/*
 				array(
 					'id'          => 'radio_buttons',
-					'label'       => __( 'Some Options', 'wordpress-plugin-template' ),
-					'description' => __( 'A standard set of radio buttons.', 'wordpress-plugin-template' ),
+					'label'       => __( 'Some Options', 'Pricing' ),
+					'description' => __( 'A standard set of radio buttons.', 'Pricing' ),
 					'type'        => 'radio',
 					'options'     => array(
 						'superman' => 'Superman',
@@ -258,8 +302,8 @@ class WordPress_Plugin_Template_Settings {
 				),
 				array(
 					'id'          => 'multiple_checkboxes',
-					'label'       => __( 'Some Items', 'wordpress-plugin-template' ),
-					'description' => __( 'You can select multiple items and they will be stored as an array.', 'wordpress-plugin-template' ),
+					'label'       => __( 'Some Items', 'Pricing' ),
+					'description' => __( 'You can select multiple items and they will be stored as an array.', 'Pricing' ),
 					'type'        => 'checkbox_multi',
 					'options'     => array(
 						'square'    => 'Square',
@@ -268,41 +312,99 @@ class WordPress_Plugin_Template_Settings {
 						'triangle'  => 'Triangle',
 					),
 					'default'     => array( 'circle', 'triangle' ),
-				),
+				),*/
 			),
 		);
 
 		$settings['extra'] = array(
-			'title'       => __( 'Extra', 'wordpress-plugin-template' ),
-			'description' => __( 'These are some extra input fields that maybe aren\'t as common as the others.', 'wordpress-plugin-template' ),
-			'fields'      => array(
+			'title'       => __( 'Extra', 'Pricing' ),
+			'description' => __( 'These section is to configure the big changes of tendence.', 'Pricing' ),
+			'fields'      => array(				
+				array(
+					'id'          => 'tendence_change_up',
+					'label'       => __( 'Tendency percentage', 'Pricing' ),
+					'description' => __( 'If the tendence of the is becoming bigger this value the price will be increase.', 'Pricing' ),
+					'type'        => 'text',
+					'default'     => '',
+					'placeholder' => __( '10%', 'Pricing' ),
+				),	
+				array(
+					'id'          => 'tendence_change_down',
+					'label'       => __( 'Tendency percentage', 'Pricing' ),
+					'description' => __( 'If the tendence of the is going down the price will be decrece.', 'Pricing' ),
+					'type'        => 'text',
+					'default'     => '',
+					'placeholder' => __( '10%', 'Pricing' ),
+				),
+				array(
+					'id'          => 'change_amount',
+					'label'       => __( 'Amount of change', 'Pricing' ),
+					'description' => __( 'This value represent how much the price will be increase or decrease depeding of the results get from the market after the periocity is complete.', 'Pricing' ),
+					'type'        => 'text',
+					'default'     => '',
+					//'placeholder' => __( 'Example 5% or 3€ or ...', 'Pricing' ),
+				),
+				array(
+					'id'          => 'change_amount_type',
+					'label'       => __( 'Periocity type', 'Pricing' ),
+					'description' => __( 'Set the period as.', 'Pricing' ),
+					'type'        => 'radio',
+					'options'     => array(
+						'percentage'    => 'percentage %', 
+						'fix'    => 'Fix price', 
+						'auto'	 => 'value auto generatic',
+					),
+					'default'     => '',
+				),
+				array(
+					'id'          => 'periocity',
+					'label'       => __( 'Periocity', 'Pricing' ),
+					'description' => __( 'Number that will set the periocity of the .', 'Pricing' ),
+					'type'        => 'text',
+					'default'     => '',
+					'placeholder' => __( '7 days or 1 month or ...', 'Pricing' ),
+				),				
+				array(
+					'id'          => 'periocity_type',
+					'label'       => __( 'Periocity type', 'Pricing' ),
+					'description' => __( 'Set the period as.', 'Pricing' ),
+					'type'        => 'select',
+					'options'     => array(
+						'seconds'    => 'Seconds', 
+						'minutes'    => 'Minutes', 
+						'hours' 	 => 'Hours', 
+						'days'		 => 'Days', 
+						'months' 	 => 'Months'
+					),
+					'default'     => '',
+				),/*
 				array(
 					'id'          => 'number_field',
-					'label'       => __( 'A Number', 'wordpress-plugin-template' ),
-					'description' => __( 'This is a standard number field - if this field contains anything other than numbers then the form will not be submitted.', 'wordpress-plugin-template' ),
+					'label'       => __( 'A Number', 'Pricing' ),
+					'description' => __( 'This is a standard number field - if this field contains anything other than numbers then the form will not be submitted.', 'Pricing' ),
 					'type'        => 'number',
 					'default'     => '',
-					'placeholder' => __( '42', 'wordpress-plugin-template' ),
+					'placeholder' => __( '42', 'Pricing' ),
 				),
 				array(
 					'id'          => 'colour_picker',
-					'label'       => __( 'Pick a colour', 'wordpress-plugin-template' ),
-					'description' => __( 'This uses WordPress\' built-in colour picker - the option is stored as the colour\'s hex code.', 'wordpress-plugin-template' ),
+					'label'       => __( 'Pick a colour', 'Pricing' ),
+					'description' => __( 'This uses WordPress\' built-in colour picker - the option is stored as the colour\'s hex code.', 'Pricing' ),
 					'type'        => 'color',
 					'default'     => '#21759B',
 				),
 				array(
 					'id'          => 'an_image',
-					'label'       => __( 'An Image', 'wordpress-plugin-template' ),
-					'description' => __( 'This will upload an image to your media library and store the attachment ID in the option field. Once you have uploaded an imge the thumbnail will display above these buttons.', 'wordpress-plugin-template' ),
+					'label'       => __( 'An Image', 'Pricing' ),
+					'description' => __( 'This will upload an image to your media library and store the attachment ID in the option field. Once you have uploaded an imge the thumbnail will display above these buttons.', 'Pricing' ),
 					'type'        => 'image',
 					'default'     => '',
 					'placeholder' => '',
 				),
 				array(
 					'id'          => 'multi_select_box',
-					'label'       => __( 'A Multi-Select Box', 'wordpress-plugin-template' ),
-					'description' => __( 'A standard multi-select box - the saved data is stored as an array.', 'wordpress-plugin-template' ),
+					'label'       => __( 'A Multi-Select Box', 'Pricing' ),
+					'description' => __( 'A standard multi-select box - the saved data is stored as an array.', 'Pricing' ),
 					'type'        => 'select_multi',
 					'options'     => array(
 						'linux'   => 'Linux',
@@ -310,7 +412,7 @@ class WordPress_Plugin_Template_Settings {
 						'windows' => 'Windows',
 					),
 					'default'     => array( 'linux' ),
-				),
+				),*/
 			),
 		);
 
@@ -401,7 +503,7 @@ class WordPress_Plugin_Template_Settings {
 
 		// Build page HTML.
 		$html      = '<div class="wrap" id="' . $this->parent->_token . '_settings">' . "\n";
-			$html .= '<h2>' . __( 'Plugin Settings', 'wordpress-plugin-template' ) . '</h2>' . "\n";
+			$html .= '<h2>' . __( 'Plugin Settings', 'Pricing' ) . '</h2>' . "\n";
 
 			$tab = '';
 		//phpcs:disable
@@ -455,7 +557,7 @@ class WordPress_Plugin_Template_Settings {
 
 				$html     .= '<p class="submit">' . "\n";
 					$html .= '<input type="hidden" name="tab" value="' . esc_attr( $tab ) . '" />' . "\n";
-					$html .= '<input name="Submit" type="submit" class="button-primary" value="' . esc_attr( __( 'Save Settings', 'wordpress-plugin-template' ) ) . '" />' . "\n";
+					$html .= '<input name="Submit" type="submit" class="button-primary" value="' . esc_attr( __( 'Save Settings', 'Pricing' ) ) . '" />' . "\n";
 				$html     .= '</p>' . "\n";
 			$html         .= '</form>' . "\n";
 		$html             .= '</div>' . "\n";
@@ -499,4 +601,22 @@ class WordPress_Plugin_Template_Settings {
 		_doing_it_wrong( __FUNCTION__, esc_html( __( 'Unserializing instances of WordPress_Plugin_Template_API is forbidden.' ) ), esc_attr( $this->parent->_version ) );
 	} // End __wakeup()
 
+
+	//////////////////////////////////////////////////////
+	/*
+	add_action('manage_product_posts_custom_column', 'dpw_product_columns_content', 5, 2);
+	public function dpw_product_columns_content($column_name, $post_ID) {
+
+		if ($column_name == 'proveedor') {
+
+			//Buscamos los valores del atributo 'proveedor' y los mostramos.
+			if($proveedores = get_the_terms( $post_ID, 'pa_proveedor')){
+					foreach ( $proveedores as $proveedor ) {
+						echo $proveedor->name;
+					}
+			}
+		}
+		
+	}
+*/
 }

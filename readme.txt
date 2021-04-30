@@ -32,16 +32,16 @@ Installing "WordPress Plugin Template" can be done either by searching for "Word
 
 = What is the plugin template for? =
 
-This plugin template is designed to help you get started with any new WordPress plugin.
+Modify automatically the price of products based on the trend of sales.
 
 == Changelog ==
 
 = 1.0 =
-* 2012-12-13
+* 2021-04-15
 * Initial release
 
 == Upgrade Notice ==
 
 = 1.0 =
-* 2012-12-13
+* 2021-04-15
 * Initial release

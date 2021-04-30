@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Main plugin class.
  */
-class WordPress_Plugin_Template {
+class Pricing {
 
 	/**
 	 * The single instance of WordPress_Plugin_Template.
@@ -24,9 +24,9 @@ class WordPress_Plugin_Template {
 	private static $_instance = null; //phpcs:ignore
 
 	/**
-	 * Local instance of WordPress_Plugin_Template_Admin_API
+	 * Local instance of Pricing_Admin_API
 	 *
-	 * @var WordPress_Plugin_Template_Admin_API|null
+	 * @var Pricing_Admin_API|null
 	 */
 	public $admin = null;
 
@@ -110,7 +110,7 @@ class WordPress_Plugin_Template {
 	 */
 	public function __construct( $file = '', $version = '1.0.0' ) {
 		$this->_version = $version;
-		$this->_token   = 'wordpress_plugin_template';
+		$this->_token   = 'pricingwp';
 
 		// Load plugin environment variables.
 		$this->file       = $file;
@@ -132,7 +132,7 @@ class WordPress_Plugin_Template {
 
 		// Load API for generic admin functions.
 		if ( is_admin() ) {
-			$this->admin = new WordPress_Plugin_Template_Admin_API();
+			$this->admin = new Pricing_Admin_API();
 		}
 
 		// Handle localisation.
@@ -149,7 +149,7 @@ class WordPress_Plugin_Template {
 	 * @param string $description Description.
 	 * @param array  $options Options array.
 	 *
-	 * @return bool|string|WordPress_Plugin_Template_Post_Type
+	 * @return bool|string|Pricing_Post_Type
 	 */
 	public function register_post_type( $post_type = '', $plural = '', $single = '', $description = '', $options = array() ) {
 
@@ -157,7 +157,7 @@ class WordPress_Plugin_Template {
 			return false;
 		}
 
-		$post_type = new WordPress_Plugin_Template_Post_Type( $post_type, $plural, $single, $description, $options );
+		$post_type = new Pricing_Post_Type( $post_type, $plural, $single, $description, $options );
 
 		return $post_type;
 	}
@@ -171,7 +171,7 @@ class WordPress_Plugin_Template {
 	 * @param array  $post_types Post types to register this taxonomy for.
 	 * @param array  $taxonomy_args Taxonomy arguments.
 	 *
-	 * @return bool|string|WordPress_Plugin_Template_Taxonomy
+	 * @return bool|string|Pricing_Taxonomy
 	 */
 	public function register_taxonomy( $taxonomy = '', $plural = '', $single = '', $post_types = array(), $taxonomy_args = array() ) {
 
@@ -179,7 +179,7 @@ class WordPress_Plugin_Template {
 			return false;
 		}
 
-		$taxonomy = new WordPress_Plugin_Template_Taxonomy( $taxonomy, $plural, $single, $post_types, $taxonomy_args );
+		$taxonomy = new Pricing_Taxonomy( $taxonomy, $plural, $single, $post_types, $taxonomy_args );
 
 		return $taxonomy;
 	}

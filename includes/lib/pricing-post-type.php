@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Post type declaration class.
  */
-class WordPress_Plugin_Template_Post_Type {
+class Pricing_Post_Type {
 
 	/**
 	 * The name for the custom post type.

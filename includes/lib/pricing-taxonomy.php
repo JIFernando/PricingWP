@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Taxonomy functions class.
  */
-class WordPress_Plugin_Template_Taxonomy {
+class Pricing_Taxonomy {
 
 	/**
 	 * The name for the taxonomy.
