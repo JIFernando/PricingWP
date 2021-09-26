@@ -441,7 +441,9 @@ class Pricing {
 			DECLARE periocity INT;
 			DECLARE productCursor CURSOR FOR SELECT p.product_id, p.periocity
 												FROM {$wpdb->prefix}product_pricing_setting as p 
-												WHERE p.periocity * 3 <= (SELECT COUNT(1) FROM product_pricing_sales_results as r WHERE r.setting_id = p.setting_id);
+												INNER JOIN {$wpdb->prefix}postmeta pm ON pm.post_id = p.product_id
+												WHERE p.periocity * 3 <= (SELECT COUNT(1) FROM product_pricing_sales_results as r WHERE r.setting_id = p.setting_id)
+												AND meta_key = '_price';
 												
 			DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
 		
@@ -479,7 +481,6 @@ class Pricing {
 		
 			DECLARE salesCursor CURSOR FOR SELECT p.product_id, p.setting_id, p.lastTotalSales
 				FROM {$wpdb->prefix}product_pricing_setting as p 
-				INNER JOIN wp_postmeta as pm ON pm.post_id = p.product_id
 				WHERE p.periocity * 2 <= (SELECT COUNT(1) FROM {$wpdb->prefix}product_pricing_sales_results as r WHERE r.setting_id = p.setting_id);
 			OPEN salesCursor;
 			read_loop: LOOP
