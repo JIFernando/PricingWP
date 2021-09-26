@@ -1,7 +1,10 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\admin",
+    "\\includes",
+    "\\includes\\lib"
   ],
-  "SelectedNode": "\\package.json",
+  "SelectedNode": "\\includes\\pricing-settings.php",
   "PreviewInSolutionExplorer": false
 }
