@@ -170,6 +170,9 @@ class Pricing_Admin_API {
 				$html .= '<input id="' . $option_name . '_delete" type="button" class="image_delete_button button" value="' . __( 'Remove image', 'pricing' ) . '" />' . "\n";
 				$html .= '<input id="' . $option_name . '" class="image_data_field" type="hidden" name="' . $option_name . '" value="' . $data . '"/><br/>' . "\n";
 				break;
+			case 'graphic':
+				$html .= '<canvas id="' . esc_attr( $field['id'] )  . '"></canvas><br/>' . "\n";
+				break;
 
 			case 'color':
 				//phpcs:disable

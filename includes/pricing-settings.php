@@ -40,7 +40,7 @@ class Pricing_Settings {
 	 * @since   1.0.0
 	 */
 	public $base = '';
-
+	
 	/**
 	 * Available settings for plugin.
 	 *
@@ -64,10 +64,20 @@ class Pricing_Settings {
 	 *
 	 * @param object $parent Parent object.
 	 */
-	public function __construct( $parent ) {
+	public function __construct( $parent ) {		
 		$this->parent = $parent;
 
 		$this->base = 'wpt_';
+		$this->preload_actions();
+		
+		//Load BoostrapsJS
+		add_action('admin_enqueue_scripts', array( $this, 'QueueBootstrapJS'));
+		
+		//Load CSS
+		add_action('admin_enqueue_scripts',array( $this, 'QueueBootstrapCSS'));
+
+		//Load local scripts
+		add_action('admin_enqueue_scripts ', array( $this, 'callback_for_setting_up_scripts'));
 
 		// Initialise settings.
 		add_action( 'init', array( $this, 'init_settings' ), 11 );
@@ -92,15 +102,84 @@ class Pricing_Settings {
 	}
 
 	/**
+	 * Load local scripts
+	 *
+	 * @return void
+	 */
+	function callback_for_setting_up_scripts() {	
+		$current_screen = get_current_screen();
+		if ( strpos($current_screen->base, 'settings_page_pricingwp_settings') === false) {
+			return;
+		} else {
+			wp_register_style( 'settings_page_pricingwp_settings', plugins_url('../assets/css/admin.css',__FILE__));
+			wp_enqueue_style( 'settings_page_pricingwp_settings' );
+			wp_enqueue_script( 'settings_page_pricingwp_settings', '../assets/css/js/admin.js', array( 'jquery' ) );
+		}
+	}
+
+	/**
+	 * Load BoostrapsJS
+	 *
+	 * @return void
+	 */
+	function QueueBootstrapJS(){
+		$current_screen = get_current_screen();
+		if ( strpos($current_screen->base, 'settings_page_pricingwp_settings') === false) {
+			return ;
+		}
+		wp_enqueue_script('bootstrapJs',plugins_url('../admin/bootstrap/js/bootstrap.min.js',__FILE__),array('jquery'));
+	}
+
+	/**
+	 * Load Boostrap CSS
+	 *
+	 * @return void
+	 */
+	function QueueBootstrapCSS(){
+		$current_screen = get_current_screen();
+		if ( strpos($current_screen->base, 'settings_page_pricingwp_settings') === false) {
+			return ;
+		}
+		wp_enqueue_style('bootstrapCSS',plugins_url('admin/bootstrap/css/bootstrap.min.css',__FILE__));
+	}
+	
+	/**
 	 * Initialise settings
 	 *
 	 * @return void
 	 */
-	public function init_settings() {
-		$this->settings = $this->settings_fields();
+	public function preload_actions() {				
+		//applyAction();
+		$action = isset($_POST['wpt_com_action']) ? $_POST['wpt_com_action'] : '';
+		$actionDeac = isset($_GET['_action']) ? $_GET['_action'] : '';
+
+		switch ($action) {
+			case "_activate":
+				$this->save_new_configuration();
+			break;
+			case "_update":
+				$this->update_configuration();
+			break;
+		}
+
+		if($actionDeac === '_deactivate'){
+			$this->deactivate_configuration();
+		}
+	}
+
+	/**
+	 * Initialise settings
+	 *
+	 * @return void
+	 */
+	public function init_settings() {		
+		$productId = '';		
+		$productId .=  isset($_GET['product_id'] ) ? $_GET['product_id'] : '';
+		$this->settings = $this->settings_fields($productId);
 
 	}
 
+	
 	/**
 	 * Add settings page to admin menu
 	 *
@@ -138,8 +217,8 @@ class Pricing_Settings {
 			array(
 				'location'    => 'options', // Possible settings: options, menu, submenu.
 				'parent_slug' => 'options-general.php',
-				'page_title'  => __( 'Plugin Settings', 'pricing' ),
-				'menu_title'  => __( 'Plugin Settings', 'pricing' ),
+				'page_title'  => __( 'Pricing Settings', 'pricing' ),
+				'menu_title'  => __( 'Pricing Settings', 'pricing' ),
 				'capability'  => 'manage_options',
 				'menu_slug'   => $this->parent->_token . '_settings',
 				'function'    => array( $this, 'settings_page' ),
@@ -208,217 +287,122 @@ class Pricing_Settings {
 	 *
 	 * @return array Fields to be displayed on settings page
 	 */
-	private function settings_fields() {
+	//private function settings_fields( $product ) {
+	private function settings_fields($productId) {
 
-		$settings['standard'] = array(
-			'title'       => __( 'Standard', 'Pricing' ),
-			'description' => __( 'Here you can set a default configuration for your products.', 'Pricing' ),
+		$currentPrice = '';
+		$max_price = '';
+		$min_price = '';
+		$change_amount = '';
+		$periocity = '';
+
+		if (!empty($productId)){
+			$settingInfo = $this->get_fields_setting_values($productId);
+
+			$currentPrice = $settingInfo->current_price;
+			$max_price = $settingInfo->max_price;
+			$min_price = $settingInfo->min_price;
+			$change_amount = $settingInfo->change_amount;
+			$periocity = $settingInfo->periocity;
+		}
+
+		$settings['settings'] = array(
+			//'title'       => __( $product[productName], 'Pricing' ),			
+			'title'       => __( 'Settings', 'Pricing' ),
+			'description' => __( 'Here you can set a default configuration for your products, please fill all the elements.', 'Pricing' ),
 			'fields'      => array(
 				array(
-					'id'          => 'default_rice',
-					'label'       => __( 'Default price', 'Pricing' ),
+					'id'          => 'current_price',
+					'label'       => __( 'Current price*', 'Pricing' ),
 					'description' => __( 'This value can be modify in the product administration area.', 'Pricing' ),
 					'type'        => 'text',
-					'default'     => '',
+					'default'     => $currentPrice,
 					'placeholder' => __( 'Example 30,00€', 'Pricing' ),
+					'mandatory'	  => true,
 				),
 				array(
 					'id'          => 'max_price',
-					'label'       => __( 'Max Price', 'Pricing' ),
+					'label'       => __( 'Max Price*', 'Pricing' ),
 					'description' => __( 'This is the maximun price set by default for all the games.', 'Pricing' ),
 					'type'        => 'text',
-					'default'     => '',
+					'default'     => $max_price,
 					'placeholder' => __( 'Example 70,00€', 'Pricing' ),
+					'mandatory'	  => true,
 				),
 				array(
 					'id'          => 'min_price',
-					'label'       => __( 'Min Price', 'Pricing' ),
+					'label'       => __( 'Min Price*', 'Pricing' ),
 					'description' => __( 'This is the minimum price set by default for all the games.', 'Pricing' ),
 					'type'        => 'text',
-					'default'     => '',
+					'default'     => $min_price,
 					'placeholder' => __( 'Example 5,00€', 'Pricing' ),
+					'mandatory'	  => true,
 				),
 				array(
 					'id'          => 'change_amount',
-					'label'       => __( 'Amount of change', 'Pricing' ),
+					'label'       => __( 'Amount of change*', 'Pricing' ),
 					'description' => __( 'This value represent how much the price will be increase or decrease depeding of the results get from the market after the periocity is complete.', 'Pricing' ),
 					'type'        => 'text',
-					'default'     => '',
+					'default'     => $change_amount,
 					'placeholder' => __( 'Example 5% or 3€ or ...', 'Pricing' ),
-				),
-				array(
-					'id'          => 'change_amount_type',
-					'label'       => __( 'Periocity type', 'Pricing' ),
-					'description' => __( 'Set the period as.', 'Pricing' ),
-					'type'        => 'radio',
-					'options'     => array(
-						'percentage'    => 'percentage %', 
-						'fix'    		=> 'Fix price €', 
-						//'auto'	 		=> 'Value auto generatic',
-					),
-					'default'     => '',
+					'mandatory'	  => true,
 				),
 				array(
 					'id'          => 'periocity',
-					'label'       => __( 'Periocity', 'Pricing' ),
-					'description' => __( 'Number that will set the periocity of the .', 'Pricing' ),
+					'label'       => __( 'Periocity*', 'Pricing' ),
+					'description' => __( 'Number that will set how many days are needed to change the price.', 'Pricing' ),
 					'type'        => 'text',
-					'default'     => '',
+					'default'     => $periocity,
 					'placeholder' => __( 'Example 7 days or 1 month or ...', 'Pricing' ),
-				),/*
-				array(
-					'id'          => 'time_type',
-					'label'       => __( 'An Option', 'Pricing' ),
-					'description' => __( 'A standard checkbox - if you save this option as checked then it will store the option as \'on\', otherwise it will be an empty string.', 'Pricing' ),
-					'type'        => 'checkbox',
-					'default'     => '',
-				),*/
-				array(
-					'id'          => 'periocity_type',
-					'label'       => __( 'Periocity type', 'Pricing' ),
-					'description' => __( 'Set the period as.', 'Pricing' ),
-					'type'        => 'select',
-					'options'     => array(
-						'seconds'    => 'Seconds', 
-						'minutes'    => 'Minutes', 
-						'hours' 	 => 'Hours', 
-						'days'		 => 'Days', 
-						'months' 	 => 'Months'
-
-					),
-					'default'     => 'Days',
-				),/*
-				array(
-					'id'          => 'radio_buttons',
-					'label'       => __( 'Some Options', 'Pricing' ),
-					'description' => __( 'A standard set of radio buttons.', 'Pricing' ),
-					'type'        => 'radio',
-					'options'     => array(
-						'superman' => 'Superman',
-						'batman'   => 'Batman',
-						'ironman'  => 'Iron Man',
-					),
-					'default'     => 'batman',
+					'mandatory'	  => true,
 				),
-				array(
-					'id'          => 'multiple_checkboxes',
-					'label'       => __( 'Some Items', 'Pricing' ),
-					'description' => __( 'You can select multiple items and they will be stored as an array.', 'Pricing' ),
-					'type'        => 'checkbox_multi',
-					'options'     => array(
-						'square'    => 'Square',
-						'circle'    => 'Circle',
-						'rectangle' => 'Rectangle',
-						'triangle'  => 'Triangle',
-					),
-					'default'     => array( 'circle', 'triangle' ),
-				),*/
 			),
 		);
 
-		$settings['extra'] = array(
-			'title'       => __( 'Extra', 'Pricing' ),
-			'description' => __( 'These section is to configure the big changes of tendence.', 'Pricing' ),
-			'fields'      => array(				
-				array(
-					'id'          => 'tendence_change_up',
-					'label'       => __( 'Tendency percentage', 'Pricing' ),
-					'description' => __( 'If the tendence of the is becoming bigger this value the price will be increase.', 'Pricing' ),
-					'type'        => 'text',
-					'default'     => '',
-					'placeholder' => __( '10%', 'Pricing' ),
-				),	
-				array(
-					'id'          => 'tendence_change_down',
-					'label'       => __( 'Tendency percentage', 'Pricing' ),
-					'description' => __( 'If the tendence of the is going down the price will be decrece.', 'Pricing' ),
-					'type'        => 'text',
-					'default'     => '',
-					'placeholder' => __( '10%', 'Pricing' ),
+		
+		$settings['statistics'] = array(
+			'title'       => __( 'Statistics', 'Pricing' ),
+			'description' => __( 'These section is you will be able to see the impact of the plugin changes.', 'Pricing' ),
+			'fields'      => array(	
+				array(	
+					'id'          => 'sales_by_day',
+					'label'       => __( 'Sales by day', 'Pricing' ),
+					'description' => __( 'In this graph we can see how the sales of the product evolves daily.', 'Pricing' ),
+					'type'        => 'graphic',
+				),array(	
+					'id'          => 'price_by_day',
+					'label'       => __( 'Price by day', 'Pricing' ),
+					'description' => __( 'In this graph we can see how the price of the product evolves daily.', 'Pricing' ),
+					'type'        => 'graphic',
 				),
-				array(
-					'id'          => 'change_amount',
-					'label'       => __( 'Amount of change', 'Pricing' ),
-					'description' => __( 'This value represent how much the price will be increase or decrease depeding of the results get from the market after the periocity is complete.', 'Pricing' ),
-					'type'        => 'text',
-					'default'     => '',
-					//'placeholder' => __( 'Example 5% or 3€ or ...', 'Pricing' ),
-				),
-				array(
-					'id'          => 'change_amount_type',
-					'label'       => __( 'Periocity type', 'Pricing' ),
-					'description' => __( 'Set the period as.', 'Pricing' ),
-					'type'        => 'radio',
-					'options'     => array(
-						'percentage'    => 'percentage %', 
-						'fix'    => 'Fix price', 
-						'auto'	 => 'value auto generatic',
-					),
-					'default'     => '',
-				),
-				array(
-					'id'          => 'periocity',
-					'label'       => __( 'Periocity', 'Pricing' ),
-					'description' => __( 'Number that will set the periocity of the .', 'Pricing' ),
-					'type'        => 'text',
-					'default'     => '',
-					'placeholder' => __( '7 days or 1 month or ...', 'Pricing' ),
-				),				
-				array(
-					'id'          => 'periocity_type',
-					'label'       => __( 'Periocity type', 'Pricing' ),
-					'description' => __( 'Set the period as.', 'Pricing' ),
-					'type'        => 'select',
-					'options'     => array(
-						'seconds'    => 'Seconds', 
-						'minutes'    => 'Minutes', 
-						'hours' 	 => 'Hours', 
-						'days'		 => 'Days', 
-						'months' 	 => 'Months'
-					),
-					'default'     => '',
-				),/*
-				array(
-					'id'          => 'number_field',
-					'label'       => __( 'A Number', 'Pricing' ),
-					'description' => __( 'This is a standard number field - if this field contains anything other than numbers then the form will not be submitted.', 'Pricing' ),
-					'type'        => 'number',
-					'default'     => '',
-					'placeholder' => __( '42', 'Pricing' ),
-				),
-				array(
-					'id'          => 'colour_picker',
-					'label'       => __( 'Pick a colour', 'Pricing' ),
-					'description' => __( 'This uses WordPress\' built-in colour picker - the option is stored as the colour\'s hex code.', 'Pricing' ),
-					'type'        => 'color',
-					'default'     => '#21759B',
-				),
-				array(
-					'id'          => 'an_image',
-					'label'       => __( 'An Image', 'Pricing' ),
-					'description' => __( 'This will upload an image to your media library and store the attachment ID in the option field. Once you have uploaded an imge the thumbnail will display above these buttons.', 'Pricing' ),
-					'type'        => 'image',
-					'default'     => '',
-					'placeholder' => '',
-				),
-				array(
-					'id'          => 'multi_select_box',
-					'label'       => __( 'A Multi-Select Box', 'Pricing' ),
-					'description' => __( 'A standard multi-select box - the saved data is stored as an array.', 'Pricing' ),
-					'type'        => 'select_multi',
-					'options'     => array(
-						'linux'   => 'Linux',
-						'mac'     => 'Mac',
-						'windows' => 'Windows',
-					),
-					'default'     => array( 'linux' ),
-				),*/
 			),
 		);
+
 
 		$settings = apply_filters( $this->parent->_token . '_settings_fields', $settings );
 
 		return $settings;
+	}
+
+	/**
+	 * Build settings fields
+	 *
+	 * @return array Fields to be displayed on settings page
+	 */
+	//private function settings_fields( $product ) {
+	private function get_fields_setting_values($productId) {
+
+		global $wpdb;
+
+		// Get database data
+		$query = "SELECT postmeta.meta_value as current_price, pSetting.max_price, pSetting.min_price, pSetting.change_amount,  pSetting.periocity
+		FROM 	   wp_postmeta	 				 as postmeta 
+		LEFT  JOIN wp_product_pricing_setting	 as pSetting ON pSetting.product_id = postmeta.post_id 
+		WHERE postmeta.post_id = $productId AND postmeta.meta_key = '_price'";
+  
+  		$product_settings= $wpdb->get_results($query);
+
+		return $product_settings[0];
 	}
 
 	/**
@@ -450,8 +434,7 @@ class Pricing_Settings {
 				// Add section to page.
 				add_settings_section( $section, $data['title'], array( $this, 'settings_section' ), $this->parent->_token . '_settings' );
 
-				foreach ( $data['fields'] as $field ) {
-
+				foreach ( $data['fields'] as $field ) {					
 					// Validation callback for field.
 					$validation = '';
 					if ( isset( $field['callback'] ) ) {
@@ -473,7 +456,7 @@ class Pricing_Settings {
 							'field'  => $field,
 							'prefix' => $this->base,
 						)
-					);
+					);									
 				}
 
 				if ( ! $current_section ) {
@@ -499,71 +482,253 @@ class Pricing_Settings {
 	 *
 	 * @return void
 	 */
+	public function product_list_page() {
+		global $wpdb;
+		
+		//$productName
+		$productName = isset($_GET['product_name']) ? $_GET['product_name'] : "";
+		$filterPname = '';
+		if(!empty($productName)){
+			$filterPname = 'AND p.post_title = "' . $productName . '"';
+		}
+		// page number
+		$paged = isset($_GET['paged']) ? $_GET['paged'] : 1;
+
+		// sort by row column 
+		$sort['name'] = isset($_GET['sort']) ? $_GET['sort'] : 'p.post_title';
+		$sort['order'] = isset($_GET['order']) ? $_GET['order'] : 'DESC';
+		$sort_by = ' ORDER BY ' . $sort['name'] . ' '. $sort['order'];
+
+		// product name 
+		$filter['product_name'] = $productName;
+
+		// Get database data
+		$sql = '
+        SELECT DISTINCT p.ID as product_id, p.post_title as productName, pm.meta_value as price, pps.start_date, pps.max_price, pps.min_price, pps.change_amount, pps.periocity, pps.setting_id 
+		FROM `wp_postmeta` pm 
+		RIGHT JOIN wp_posts p ON p.ID = pm.post_id 
+		LEFT JOIN wp_product_pricing_setting pps ON p.ID = pps.product_id 
+		WHERE pm.meta_key = "_price" AND p.post_type = "product" ' . $filterPname  . '  ORDER BY ' . $sort['name'] . ' ' . $sort['order'];
+        $rows = $wpdb->get_results($sql);
+		
+        $rows_per_page = 10;
+		
+        // initial link for pagination.
+        // "page" must be the  menu slug / clean url from the add_menu_page
+        $link = substr($_SERVER['REQUEST_URI'], 0, strpos($_SERVER['REQUEST_URI'], "&"));
+
+
+		//add_query_arg(array('tab' => 'settings','product_id' => $productId, '_action' => '_activate'));
+		// Build page HTML.
+		$html      = '<div class="wrap" id="' . $this->parent->_token . '_product_list">' . "\n";
+			//$html .= '<h2>' . __( 'Product list', 'Pricing' ) . '</h2>' . "\n";
+
+			$html .= '
+            <form action="' . $link . '" method="get">
+                <input type="hidden" name="page" value="pricingwp_settings">
+                <input type="hidden" name="sort" value="'.$sort['name'].'">
+                <input type="hidden" name="order" value="'.$sort['order'].'">
+                <input type="hidden" name="paged" value="'.$paged.'">
+                <label for="product_name">'.__('Product Name').'</label>
+                <input type="text" name="product_name" value="' .$filter['product_name']. '" placeholder="name">
+                <input type="submit" class="page-title-action" value="'.__('Send').'">
+				<a href="' . $link . '" class="page-title-action"    role="button" >Reset</a>
+            </form>';		
+
+		// add pagination arguments from WordPress
+		$pagination_args = array(
+			'base' => add_query_arg('paged','%#%'),
+			'format' => '',
+			'total' => ceil(sizeof($rows)/$rows_per_page),
+			'current' => $paged,
+			'show_all' => false,
+			'type' => 'plain',
+		);
+
+		$start = ($paged - 1) * $rows_per_page;
+		$end_initial = $start + $rows_per_page;
+		$end = (sizeof($rows) < $end_initial) ? sizeof($rows) : $end_initial;
+
+		// if we have results
+		if (count($rows) > 0) {
+			// prepare link for pagination
+			$link .= '&product_name=' . $filter['product_name'];
+
+			$order = $sort['order'] == "ASC" ? "DESC" : "ASC";
+
+			// html table head
+			$html .= ' <table class="wp-list-table widefat fixed striped pages">
+					<thead>
+						<th>Product Name</th>
+						<th >Current Price</th>
+						<th >Maximum Price</th>
+						<th >Minimun Price</th>
+						<th >Change Amount</th>
+						<th >Period</th>
+						<th >Actions</th>
+					</thead>
+				<tbody id="porduct-list"> 
+				';
+
+			// add rows
+			for ($index = $start; $index < $end;  ++$index) {
+
+				$row = $rows[$index];
+				//Get row values
+				$productName = $row->productName; 
+				$price       = $row->price; 
+				$max_price   = $row->max_price; 
+				$min_price   = $row->min_price; 
+				$change      = $row->change_amount; 
+				$period      = $row->periocity; 
+				
+				//create list of links
+				$productId =  isset($row->product_id) ? $row->product_id : '';
+				$act_link = add_query_arg(array('tab' => 'settings','product_id' => $productId, '_action' => '_activate'));
+				$set_link = add_query_arg(array('tab' => 'settings','product_id' => $productId, '_action' => '_update'));			
+				$Dea_link = add_query_arg(array( '_action' => '_deactivate', 'deactivate' => $productId) 	);
+
+				$styleAct = '';
+				$styleDea = '';
+				$isActivated = isset($row->setting_id) ? true: false;
+
+				if($isActivated){
+					$styleAct = 'style="display:none"';
+				}
+				else 
+				{
+					$styleDea = 'style="display:none"';
+				}
+
+				$class_row = ($index % 2 == 1 ) ? ' class="alternate"' : '';
+				$html .= '
+					<tr>
+						<td>' . $row->productName . '</td>
+						<td>' . $row->price . '</td>
+						<td>' . $max_price . '</td>
+						<td>' . $min_price . '</td>
+						<td>' . $change . '</td>
+						<td>' . $period . '</td>
+						<td class="actions-buttons">
+							<a href="' . $act_link . '" '  . $styleAct . ' class="page-title-action" role="button" >Activate</a>
+							<a href="' . $Dea_link . '" '  . $styleDea . ' class="page-title-action" role="button" >Deactivate</a>
+							<a href="' . $set_link . '" '  . $styleDea . ' class="page-title-action" role="button" >Settings</a>
+						</td>
+					</tr> ';
+			}
+
+			$html .= '</tbody></table></div>';
+	
+			// add pagination links from WordPress
+			$html .= '<div class="tablenav-pages" style="">' . paginate_links($pagination_args) . '</div';
+		} else {
+			$html .= '<p>' . __('No products have been found.') . '</p>';
+		} // endif count($rows) 
+
+		return $html; //phpcs:ignore
+	}
+	/**
+	 * Load settings page content.
+	 *
+	 * @return void
+	 */
 	public function settings_page() {
 
 		// Build page HTML.
 		$html      = '<div class="wrap" id="' . $this->parent->_token . '_settings">' . "\n";
-			$html .= '<h2>' . __( 'Plugin Settings', 'Pricing' ) . '</h2>' . "\n";
+			$html .= '<h2>' . __( 'Pricing Settings', 'Pricing' ) . '</h2>' . "\n";
+			$html .= "<script src=\"https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js\"></script>";
+		$productId = '';
+		$tab = '';
+		$action = '';
 
-			$tab = '';
 		//phpcs:disable
 		if ( isset( $_GET['tab'] ) && $_GET['tab'] ) {
 			$tab .= $_GET['tab'];
 		}
+		
+		$action .=  isset($_GET['_action'] ) ? $_GET['_action'] : '';
+		
+		$productId .=  isset($_GET['product_id'] ) ? $_GET['product_id'] : '';
+		
 		//phpcs:enable
+		if(empty($productId)){
+			$html .= $this->product_list_page();
+		}
+		else if( !(is_null($_GET['tab'] ) 
+			|| empty($_GET['tab'] )		
+		)){
+			
+			// Show page tabs.
+			if ( is_array( $this->settings ) && 1 < count( $this->settings ) ) {
 
-		// Show page tabs.
-		if ( is_array( $this->settings ) && 1 < count( $this->settings ) ) {
+				$html .= '<h2 class="nav-tab-wrapper">' . "\n";
 
-			$html .= '<h2 class="nav-tab-wrapper">' . "\n";
+				$c = 0;
+				foreach ( $this->settings as $section => $data ) {
 
-			$c = 0;
-			foreach ( $this->settings as $section => $data ) {
-
-				// Set tab class.
-				$class = 'nav-tab';
-				if ( ! isset( $_GET['tab'] ) ) { //phpcs:ignore
-					if ( 0 === $c ) {
-						$class .= ' nav-tab-active';
+					// Set tab class.
+					$class = 'nav-tab';
+					if ( ! isset( $_GET['tab'] ) ) { //phpcs:ignore
+						if ( 0 === $c ) {
+							$class .= ' nav-tab-active';
+						}
+					} else {
+						if ( isset( $_GET['tab'] ) && $section == $_GET['tab'] ) { //phpcs:ignore
+							$class .= ' nav-tab-active';
+						}
 					}
-				} else {
-					if ( isset( $_GET['tab'] ) && $section == $_GET['tab'] ) { //phpcs:ignore
-						$class .= ' nav-tab-active';
+
+					// Set tab link.
+					$tab_link = add_query_arg( 
+						array( 
+							'tab' => $section
+						) 
+					);
+
+					if ( isset( $_GET['settings-updated'] ) ) { //phpcs:ignore
+						$tab_link = remove_query_arg( 'settings-updated', $tab_link );
 					}
+
+					// Output tab.
+					$html .= '<a href="' . $tab_link . '" class="' . esc_attr( $class ) . '">' . esc_html( $data['title'] ) . '</a>' . "\n";
+
+					++$c;
 				}
 
-				// Set tab link.
-				$tab_link = add_query_arg( array( 'tab' => $section ) );
-				if ( isset( $_GET['settings-updated'] ) ) { //phpcs:ignore
-					$tab_link = remove_query_arg( 'settings-updated', $tab_link );
-				}
-
-				// Output tab.
-				$html .= '<a href="' . $tab_link . '" class="' . esc_attr( $class ) . '">' . esc_html( $data['title'] ) . '</a>' . "\n";
-
-				++$c;
+				$html .= '</h2>' . "\n";
 			}
 
-			$html .= '</h2>' . "\n";
+			global $wp;
+			$homeLink = home_url( $wp->request ) . '/wp-admin/options-general.php?page=pricingwp_settings';
+
+				$html .= '<form method="post" action="' . $homeLink . '" enctype="multipart/form-data">' . "\n";
+
+					// Get settings fields.
+					ob_start();
+					settings_fields( $this->parent->_token . '_settings' );
+					do_settings_sections( $this->parent->_token . '_settings' );
+					$html .= ob_get_clean();
+
+					$html     .= '<p class="submit">' . "\n";
+						$html .= '<input type="hidden" name="tab" value="' . esc_attr( $tab ) . '" />' . "\n";
+						$html .= '<input id="product_id" style="display:none" type="text" name="' . esc_attr( $this->base.'product_id' ) . '" value="' . esc_attr( $productId ) . '" />' . "\n";
+						$html .= '<input id="com_action" style="display:none" type="text" name="' . esc_attr( $this->base.'com_action' ) . '" value="' . esc_attr( $action ) . '" />' . "\n";
+						if($tab === 'settings'){
+							$html .= '<input name="Submit" type="submit" class="page-title-action" value="' . esc_attr( __( 'Save Settings', 'Pricing' ) ) . '" />' . "\n";
+						}
+						$html .= '<a href="' . $homeLink . '" class=" page-title-action" role="button" >' . esc_attr( __( 'Back', 'Pricing' ) ) . '</a>' . "\n";
+						
+					$html     .= '</p>' . "\n";
+				$html         .= '</form>' . "\n";
 		}
-
-			$html .= '<form method="post" action="options.php" enctype="multipart/form-data">' . "\n";
-
-				// Get settings fields.
-				ob_start();
-				settings_fields( $this->parent->_token . '_settings' );
-				do_settings_sections( $this->parent->_token . '_settings' );
-				$html .= ob_get_clean();
-
-				$html     .= '<p class="submit">' . "\n";
-					$html .= '<input type="hidden" name="tab" value="' . esc_attr( $tab ) . '" />' . "\n";
-					$html .= '<input name="Submit" type="submit" class="button-primary" value="' . esc_attr( __( 'Save Settings', 'Pricing' ) ) . '" />' . "\n";
-				$html     .= '</p>' . "\n";
-			$html         .= '</form>' . "\n";
 		$html             .= '</div>' . "\n";
+		$html             .= '<script type=\'text/javascript\' src=\'../wp-content/plugins/Pricing/assets/js/graphic.js\'></script>' . "\n";
 
 		echo $html; //phpcs:ignore
 	}
+
+
 
 	/**
 	 * Main WordPress_Plugin_Template_Settings Instance
@@ -601,22 +766,96 @@ class Pricing_Settings {
 		_doing_it_wrong( __FUNCTION__, esc_html( __( 'Unserializing instances of WordPress_Plugin_Template_API is forbidden.' ) ), esc_attr( $this->parent->_version ) );
 	} // End __wakeup()
 
-
-	//////////////////////////////////////////////////////
-	/*
-	add_action('manage_product_posts_custom_column', 'dpw_product_columns_content', 5, 2);
-	public function dpw_product_columns_content($column_name, $post_ID) {
-
-		if ($column_name == 'proveedor') {
-
-			//Buscamos los valores del atributo 'proveedor' y los mostramos.
-			if($proveedores = get_the_terms( $post_ID, 'pa_proveedor')){
-					foreach ( $proveedores as $proveedor ) {
-						echo $proveedor->name;
-					}
-			}
-		}
+	/**
+	 * Cloning is forbidden.
+	 *
+	 * @since 1.0.0
+	 */
+	public function save_new_configuration() {
 		
+		global $wpdb;
+
+		$id = $_POST[$this->base.'product_id'];
+		$d_price = $_POST[$this->base.'current_price']; //Current price - represent the original price of the product
+		$start_date = date("Y/m/d");
+		$min_price = $_POST[$this->base.'min_price'];
+		$max_price = $_POST[$this->base.'max_price'];
+		$change_amount = $_POST[$this->base.'change_amount'];
+		$periocity = $_POST[$this->base.'periocity'];     
+					
+		$query2 = "SELECT meta_value FROM wp_postmeta pm WHERE pm.post_id = $id AND meta_key = 'total_sales'";
+		$initialSales = $wpdb->get_results($query2)[0];
+		$lastTotalSales = $initialSales->meta_value;
+
+		$query = "INSERT INTO wp_product_pricing_setting (product_id,  default_price, `start_date`,  min_price,  
+		max_price,  change_amount,  periocity,  initialSales,  lastTotalSales) 
+		VALUES ($id, $d_price, $start_date,  $min_price,  $max_price,  $change_amount,  $periocity,  
+		$lastTotalSales,  $lastTotalSales)";
+		$wpdb->query($query);					
+
+		
+		$query2 = "UPDATE wp_postmeta pm SET meta_value =  $d_price WHERE pm.post_id = $id AND meta_key IN ('_price','_sale_price');";
+		$lastTotalSales = $wpdb->query($query2);
+		echo '<script>alert("' . "The configuration have been save." . '")</script>';
+	} // End save_new_configuration()
+
+	
+	/**
+	 * Cloning is forbidden.
+	 *
+	 * @since 1.0.0
+	 */
+	public function update_configuration() {
+		global $wpdb;
+		$id = $_POST[$this->base.'product_id'];
+		$d_price = $_POST[$this->base.'current_price']; //Current price - represent the original price of the product
+		$min_price = $_POST[$this->base.'min_price'];
+		$max_price = $_POST[$this->base.'max_price'];
+		$change_amount = $_POST[$this->base.'change_amount'];
+		$periocity = $_POST[$this->base.'periocity'];   
+		
+		$query = "SELECT meta_value FROM wp_postmeta pm WHERE pm.post_id = $id AND meta_key = 'total_sales'";
+		$lastTotalSales = $wpdb->get_results($query);
+
+		
+		$query2 = "UPDATE wp_postmeta pm SET meta_value =  $d_price WHERE pm.post_id = $id AND meta_key IN ('_price','_sale_price');";
+		$lastTotalSales = $wpdb->query($query2);
+
+		$wpdb->query("UPDATE wp_product_pricing_setting 
+		SET min_price = $min_price, 
+			max_price = $max_price,  
+			change_amount = $change_amount,  
+			periocity = $periocity,  
+			lastTotalSales = $lastTotalSales
+		WHERE product_id = $id");		
+		echo '<script>alert("' . "The configuration have been save." . '")</script>';
+	} // End update_configuration()
+
+	
+	/**
+	 * Cloning is forbidden.
+	 *
+	 * @since 1.0.0
+	 */
+	public function deactivate_configuration() {
+		global $wpdb;
+		$id = $_GET['deactivate'];
+		$wpdb->query("DELETE FROM wp_product_pricing_sales_results WHERE product_id in (SELECT results_id FROM wp_product_pricing_setting WHERE product_id = $id)");
+		$wpdb->query("DELETE FROM wp_product_pricing_setting WHERE product_id = $id");
+		echo '<script>alert("' . "The configuration have deactivate." . '")</script>';
+	} // End deactivate_configuration()
+
+	/**
+	 * Get graphic data to display 
+	 */
+	public function get_grphic_display_data($productId){
+		global $wp;
+		$sql = "SELECT pr.sales, pr.default_price as price, pr.date 
+		FROM `wp_product_pricing_sales_results` as pr 
+		INNER JOIN `wp_product_pricing_setting` ps ON ps.setting_id = pr.setting_id
+		WHERE ps.product_id = $productId ORDER BY pr.date ASC";
+		
+		$rows = $wp->get_results($sql);
+		return $rows;
 	}
-*/
 }

@@ -311,6 +311,7 @@ class Pricing {
 	 */
 	public function install() {
 		$this->_log_version_number();
+		$this->_create_db_structure();
 	} // End install ()
 
 	/**
@@ -324,4 +325,191 @@ class Pricing {
 		update_option( $this->_token . '_version', $this->_version );
 	} // End _log_version_number ()
 
+	/**
+	 * Create database structure.
+	 *
+	 * @access  public
+	 * @return  void
+	 * @since   1.0.0
+	 */
+	private function _create_db_structure () {
+		global $wpdb;
+
+		$sql ="CREATE TABLE IF NOT EXISTS {$wpdb->prefix}product_pricing_setting(
+			`setting_id` BIGINT NOT NULL AUTO_INCREMENT, 
+			`product_id` BIGINT NOT NULL,
+			`default_price` DECIMAL,
+			`start_date` DATETIME,
+			`min_price` DECIMAL,
+			`max_price` DECIMAL,
+			`change_amount` DECIMAL,
+			`periocity` INTEGER,
+			`initialSales` BIGINT NOT NULL,
+			`lastTotalSales` BIGINT NULL, -- last period
+			PRIMARY KEY (`setting_id`),
+			FOREIGN KEY (`product_id`) REFERENCES wp_posts(id));";
+		$wpdb->query($sql); 
+			
+		$sql1 = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}product_pricing_sales_results(
+			`results_id` BIGINT NOT NULL AUTO_INCREMENT, 
+			`setting_id` BIGINT NOT NULL,
+			`date` DATETIME NOT NULL,
+			`price` DECIMAL,
+			`periocity` INTEGER,
+			`sales` BIGINT NULL,
+			PRIMARY KEY (`results_id`),
+			FOREIGN KEY (`setting_id`) REFERENCES {$wpdb->prefix}product_pricing_setting(setting_id));";
+		$wpdb->query($sql1);   
+			
+		$sql2 = "CREATE FUNCTION IF NOT EXISTS {$wpdb->prefix}Tendence (
+					productId BIGINT,
+					periocity INTEGER,
+					sDate DATETIME
+				)
+			RETURNS DECIMAL
+			DETERMINISTIC
+			BEGIN
+				DECLARE mediaSales1 double(10,2);
+				DECLARE	mediaSales2 double(10,2);
+				DECLARE	mediaDates1 double(10,2);
+				DECLARE	mediaDates2 double(10,2);		
+				DECLARE	solution DECIMAL(10,2);
+				SET mediaSales1 = (SELECT AVG(sales) FROM {$wpdb->prefix}product_pricing_sales_results r
+								WHERE  r.date BETWEEN DATE_SUB(sDate, INTERVAL periocity * 2 DAY) 
+								AND DATE_SUB(sDate, INTERVAL periocity DAY) AND product_id = productId);
+				SET mediaDates1 = (SELECT AVG(UNIX_TIMESTAMP(selected_date)) FROM 
+								(SELECT ADDDATE('1970-01-01',t4.i*10000 + t3.i*1000 + t2.i*100 + t1.i*10 + t0.i) selected_date FROM
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t0,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t1,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t2,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t3,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t4) v
+								WHERE selected_date BETWEEN DATE_SUB(sDate, INTERVAL periocity * 2 DAY) AND DATE_SUB(sDate, INTERVAL periocity DAY));
+				SET mediaSales2 = (SELECT AVG(sales) FROM {$wpdb->prefix}product_pricing_sales_results r
+								WHERE  r.date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL periocity DAY) 
+								AND CURRENT_DATE() AND {$wpdb->prefix}product_id = productId);
+				SET mediaDates2 = (SELECT AVG(UNIX_TIMESTAMP(selected_date)) FROM 
+								(SELECT ADDDATE('1970-01-01',t4.i*10000 + t3.i*1000 + t2.i*100 + t1.i*10 + t0.i) selected_date FROM
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t0,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t1,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t2,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t3,
+								(SELECT 0 i UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) t4) v
+								WHERE selected_date BETWEEN DATE_SUB(sDate, INTERVAL periocity DAY) AND sDate);
+				SET solution = ((mediaSales2 - mediaSales1) / (mediaDates2 - mediaDates1) * (unix_timestamp(CURRENT_DATE()) - mediaDates1)) + mediaSales1;
+				RETURN solution; 
+		
+			END;";
+		$wpdb->query($sql2); 
+			
+		$sql3 = "CREATE FUNCTION IF NOT EXISTS {$wpdb->prefix}GetNewPrice (price DECIMAL, changeAmount DECIMAL, minPrice DECIMAL, maxPrice DECIMAL, tendence0 DECIMAL, tendence1 DECIMAL)
+			RETURNS DECIMAL
+			DETERMINISTIC
+			BEGIN
+				DECLARE newPrice DECIMAL;
+				IF (tendence0 <= tendence1 AND maxPrice >= price + changeAmount)
+				THEN
+					-- Positive number of sales => Increase value
+					SET newPrice = changeAmount + price;		
+				ELSEIF (maxPrice < price - changeAmount)
+				THEN 
+					SET newPrice = maxPrice;			
+				ELSEIF (minPrice <= price - changeAmount)
+				THEN
+					-- Negative number of sales => Decrease value
+					SET newPrice = price - changeAmount;		
+				ELSEIF (minPrice > price - changeAmount)
+				THEN 		
+					SET newPrice = minPrice;
+				END IF;
+				RETURN newPrice;
+			END;"; 
+		$wpdb->query($sql3);  
+			
+		$sql4 = "CREATE PROCEDURE IF NOT EXISTS {$wpdb->prefix}CalculateNextPrices()
+			BEGIN
+			DECLARE done INT DEFAULT FALSE;
+			
+			DECLARE productId BIGINT;
+			DECLARE settingId BIGINT;
+			DECLARE maxResult BIGINT;
+			DECLARE tendenceP1 DECIMAL; 
+			DECLARE tendenceP2 DECIMAL;
+			DECLARE newPrice DECIMAL;
+			DECLARE sales BIGINT;
+			DECLARE price DECIMAL;
+			DECLARE periocity INT;
+			DECLARE productCursor CURSOR FOR SELECT p.product_id, p.periocity
+												FROM {$wpdb->prefix}product_pricing_setting as p 
+												WHERE p.periocity * 3 <= (SELECT COUNT(1) FROM product_pricing_sales_results as r WHERE r.setting_id = p.setting_id);
+												
+			DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+		
+			OPEN productCursor;
+			read_loop: LOOP
+				FETCH productCursor INTO productId, price, settingId, periocity;
+				IF done THEN
+				LEAVE read_loop;
+				END IF;
+									
+				-- Get taotal ammount of sales during the current period	
+				SET sales = (SELECT meta_value FROM wp_postmeta WHERE meta_key = 'total_sales' AND post_id = productId LIMIT 1);
+								
+				SET tendenceP1 = (SELECT {$wpdb->prefix}Tendence(productId,periocity, (SELECT DATE_SUB(CURRENT_DATE(), INTERVAL periocity DAY))));		
+				SET tendenceP2 = (SELECT {$wpdb->prefix}Tendence(productId,periocity, CURRENT_DATE()));	
+				
+				SET newPrice = (SELECT {$wpdb->prefix}GetNewPrice(price, changeAmount, minPrice, maxPrice, tendenceP1, tendenceP2));
+					
+				UPDATE wp_postmeta
+				SET meta_value = (SELECT CONVERT(price, CHAR))
+				WHERE  post_id = productId AND meta_key IN ('_price','_sale_price');
+					
+			END LOOP;
+		
+			CLOSE productCursor;
+			END;";        
+		$wpdb->query($sql4); 
+
+		$sql5 = "CREATE PROCEDURE IF NOT EXISTS {$wpdb->prefix}CalculateSales()
+			BEGIN
+			DECLARE s_id BIGINT;
+			DECLARE p_id BIGINT;
+			DECLARE lastTotalSales BIGINT;
+			DECLARE currentPeriodSales BIGINT;
+		
+			DECLARE salesCursor CURSOR FOR SELECT p.product_id, p.setting_id, p.lastTotalSales
+				FROM {$wpdb->prefix}product_pricing_setting as p 
+				INNER JOIN wp_postmeta as pm ON pm.post_id = product.product_id
+				WHERE p.periocity * 2 <= (SELECT COUNT(1) FROM {$wpdb->prefix}product_pricing_sales_results as r WHERE r.setting_id = p.setting_id);
+			OPEN salesCursor;
+			read_loop: LOOP
+				FETCH salesCursor INTO p_id, s_id, lastTotalSales;
+				IF done THEN
+				LEAVE read_loop;
+				END IF;
+									
+				-- Get taotal ammount of sales during the current period	
+				SET currentPeriodSales = (SELECT meta_value - lastTotalSales FROM wp_postmeta WHERE meta_key = 'total_sales' AND post_id = productId LIMIT 1);
+				
+				-- Update the current total sales for the next day
+				UPDATE {$wpdb->prefix}product_pricing_setting
+				SET lastTotalSales = (SELECT meta_value FROM wp_postmeta WHERE meta_key = 'total_sales' AND post_id = productId LIMIT 1)
+				WHERE setting_id = s_id;
+						
+				-- Save the results 		
+				INSERT INTO {$wpdb->prefix}product_pricing_sales_results (`setting_id`,`date`, `sales`, `price`)
+				VALUES(s_id, CURRENT_DATE(), currentPeriodSales, (SELECT CAST(meta_value as DECIMAL) FROM wp_postmeta WHERE  post_id = p_id AND meta_key = '_price'));
+				
+			END LOOP;
+		
+			CLOSE salesCursor;
+			END;"; 
+		$wpdb->query($sql5); 
+			
+		$sql6 = "CREATE event IF NOT EXISTS {$wpdb->prefix}daily_calculation_event ON schedule every 1 day starts (TIMESTAMP(CURRENT_DATE) + INTERVAL 1 DAY)  do CALL {$wpdb->prefix}CalculateSales();";         
+		$wpdb->query($sql6); 
+		$sql7 = "CREATE event IF NOT EXISTS {$wpdb->prefix}daily_prices_calculation_event ON schedule every 1 day starts (TIMESTAMP(CURRENT_DATE) + INTERVAL 1 DAY + INTERVAL 1 HOUR)  do CALL {$wpdb->prefix}CalculateNextPrices();";         
+		$wpdb->query($sql7);    
+    
+	}
 }

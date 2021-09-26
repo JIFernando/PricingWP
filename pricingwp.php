@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: PricingWP
+ * Plugin Name: Pricing
  * Version: 1.0.0
  * Plugin URI: jimeneziglesiasfernando@gmail.com
  * Description: Modify automatically the price of products based on the trend of sales.
